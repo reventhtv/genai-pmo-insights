@@ -9,7 +9,12 @@ def analyze_update(text: str):
     prompt = f"""
 You are a PMO AI assistant.
 
-Analyze the stakeholder update below and return STRICT JSON only:
+Analyze the stakeholder update below and return STRICT JSON only.
+
+Your goal is not just to identify risks, but to provide
+clear response guidance for PMO decision-making.
+
+Return JSON in this exact format:
 {{
   "subject": "...",
   "body": "...",
@@ -18,7 +23,10 @@ Analyze the stakeholder update below and return STRICT JSON only:
     {{
       "description": "...",
       "category": "Schedule | Cost | People | Quality | Risk",
-      "severity": "Low | Medium | High"
+      "severity": "Low | Medium | High",
+      "response_strategy": "Avoid | Mitigate | Transfer | Accept",
+      "attention_level": "Immediate | Near-term | Monitor",
+      "suggested_owner": "PM | Program Manager | Engineering Manager | Vendor Manager"
     }}
   ]
 }}
