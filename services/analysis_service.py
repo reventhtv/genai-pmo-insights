@@ -12,12 +12,17 @@ ESCALATION_KEYWORDS = [
 ]
 
 
+def calculate_risk_heat(severity: str, attention: str) -> str:
+    if severity == "High" and attention == "Immediate":
+        return "High"
+    if severity == "High" or attention == "Immediate":
+        return "Medium"
+    if severity == "Medium" and attention == "Near-term":
+        return "Low"
+    return "Low"
+
+
 def build_escalation_summary(risks, stakeholder_text: str):
-    """
-    Builds escalation summary using:
-    - Risk severity / attention
-    - Explicit escalation language in stakeholder update
-    """
     escalations = []
     text_lower = stakeholder_text.lower()
 
@@ -42,16 +47,10 @@ def build_escalation_summary(risks, stakeholder_text: str):
 
 
 def analyze_update(text: str):
-    """
-    Orchestrates stakeholder update analysis using a hybrid AI approach.
-    """
     prompt = f"""
 You are a PMO AI assistant.
 
 Analyze the stakeholder update below and return STRICT JSON only.
-
-Your goal is not just to identify risks, but to provide
-clear response guidance for PMO decision-making.
 
 Return JSON in this exact format:
 {{
@@ -78,6 +77,12 @@ Stakeholder update:
 
     if result is None:
         result = fallback_analysis()
+
+    # 🔥 Derive risk heat for all risks
+    for risk in result["risks"]:
+        risk["risk_heat"] = calculate_risk_heat(
+            risk["severity"], risk["attention_level"]
+        )
 
     result["escalation_summary"] = build_escalation_summary(
         result["risks"], text
