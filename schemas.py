@@ -9,6 +9,7 @@ class Risk(BaseModel):
     response_strategy: str  # Avoid | Mitigate | Transfer | Accept
     attention_level: str    # Immediate | Near-term | Monitor
     suggested_owner: str    # PM | Program Manager | Engineering Manager | Vendor Manager
+    risk_heat: str          # High | Medium | Low
 
 
 class AnalysisResult(BaseModel):
