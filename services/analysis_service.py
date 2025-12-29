@@ -1,6 +1,24 @@
 from services.llm_service import call_llm
 from services.fallback_service import fallback_analysis
 
+def build_escalation_summary(risks):
+    """
+    Builds a short escalation summary for leadership review.
+    """
+    escalations = []
+
+    for risk in risks:
+        if (
+            risk.get("severity") == "High"
+            or risk.get("attention_level") == "Immediate"
+        ):
+            escalations.append(
+                f"- {risk['description']} "
+                f"(Owner: {risk['suggested_owner']})"
+            )
+
+    return escalations
+
 
 def analyze_update(text: str):
     """
@@ -40,4 +58,5 @@ Stakeholder update:
     if result is None:
         return fallback_analysis()
 
+    result["escalation_summary"] = build_escalation_summary(result["risks"])
     return result
