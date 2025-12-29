@@ -1,7 +1,13 @@
 🧠 GenAI PMO Insights
 
 GenAI PMO Insights is a lightweight, privacy-first decision support tool for PMOs.
-It converts unstructured stakeholder updates into escalation signals, prioritized risks, and clear action guidance — helping leaders focus on what actually needs attention.
+It converts unstructured stakeholder updates into escalation signals, prioritized risks and clear action guidance — helping leaders focus on what actually needs attention.
+
+## Screenshot
+
+![GenAI PMO Insights – Escalation, Risk Heat, and Action Guidance](assets/gpmoid_dashboard.png)
+*Escalation summary, early warning signals and risk heat prioritization generated from a single stakeholder update.*
+
 
 This is not an AI summarizer.
 It is designed for governance, predictability, and decision-making.
