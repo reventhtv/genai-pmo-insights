@@ -1,20 +1,41 @@
 from services.llm_service import call_llm
 from services.fallback_service import fallback_analysis
 
-def build_escalation_summary(risks):
+
+ESCALATION_KEYWORDS = [
+    "leadership attention",
+    "rebaseline",
+    "approval not received",
+    "will be impacted",
+    "timeline will be impacted",
+    "escalation may be required"
+]
+
+
+def build_escalation_summary(risks, stakeholder_text: str):
     """
-    Builds a short escalation summary for leadership review.
+    Builds escalation summary using:
+    - Risk severity / attention
+    - Explicit escalation language in stakeholder update
     """
     escalations = []
+    text_lower = stakeholder_text.lower()
+
+    keyword_triggered = any(
+        keyword in text_lower for keyword in ESCALATION_KEYWORDS
+    )
 
     for risk in risks:
-        if (
+        rule_triggered = (
             risk.get("severity") == "High"
             or risk.get("attention_level") == "Immediate"
-        ):
+        )
+
+        if rule_triggered or keyword_triggered:
             escalations.append(
                 f"- {risk['description']} "
-                f"(Owner: {risk['suggested_owner']})"
+                f"(Owner: {risk['suggested_owner']}, "
+                f"Severity: {risk['severity']})"
             )
 
     return escalations
@@ -56,7 +77,10 @@ Stakeholder update:
     result = call_llm(prompt)
 
     if result is None:
-        return fallback_analysis()
+        result = fallback_analysis()
 
-    result["escalation_summary"] = build_escalation_summary(result["risks"])
+    result["escalation_summary"] = build_escalation_summary(
+        result["risks"], text
+    )
+
     return result
