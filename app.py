@@ -9,9 +9,7 @@ st.set_page_config(
 )
 
 st.title("🧠 GenAI PMO Insights")
-st.caption(
-    "Convert stakeholder updates into escalation-ready PMO insights."
-)
+st.caption("Escalation-aware PMO insights with risk prioritization.")
 
 uploaded_file = st.file_uploader(
     "Upload stakeholder update (.txt)",
@@ -28,27 +26,26 @@ if uploaded_file:
         with st.spinner("Analyzing project signals..."):
             result = analyze_update(raw_text)
 
-        # ---------------- Escalation Summary ----------------
+        # 🚨 Escalation Summary
         st.subheader("🚨 Escalation Summary")
-
         if result.get("escalation_summary"):
             for item in result["escalation_summary"]:
                 st.markdown(item)
         else:
             st.write("No items require immediate escalation.")
 
-        # ---------------- Executive Email ----------------
+        # ✉️ Executive Email
         st.subheader("✉️ Executive Email Preview")
         st.markdown(f"**Subject:** {result['subject']}")
         st.write(result["body"])
 
-        # ---------------- Warnings ----------------
+        # ⚠️ Warnings
         st.subheader("⚠️ Early Warning Signals")
         for w in result["warnings"]:
             st.markdown(f"- 🔶 {w}")
 
-        # ---------------- Risks ----------------
-        st.subheader("📊 Risk Summary")
+        # 📊 Risks with Heat
+        st.subheader("🔥 Risk Heat Summary")
 
         df = pd.DataFrame(result["risks"])
         df = df[
@@ -56,8 +53,9 @@ if uploaded_file:
                 "description",
                 "category",
                 "severity",
-                "response_strategy",
                 "attention_level",
+                "risk_heat",
+                "response_strategy",
                 "suggested_owner",
             ]
         ]
