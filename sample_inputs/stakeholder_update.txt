@@ -1,10 +1,16 @@
-Overall progress is on track, however there are some emerging concerns.
-The integration with the external payments vendor is taking longer than
-expected due to delayed feedback on API changes.
+Overall progress remains broadly on track, however there are a few items
+that may require leadership attention if not addressed promptly.
 
-The engineering team is currently managing multiple parallel deliverables,
-which has started to impact morale and sprint predictability.
-There is also a risk that the current delay may affect the UAT timeline
-if vendor approval is not received within the next two weeks.
+The integration with the external payments vendor continues to be delayed.
+Despite multiple follow-ups, formal approval on the revised API contract
+has not yet been received. If approval is not secured by the end of next
+week, the UAT timeline will be impacted and a schedule rebaseline may be
+required.
 
-We are monitoring the situation closely and exploring mitigation options.
+The engineering team is currently handling multiple parallel deliverables
+across programs. While delivery is continuing, sustained workload pressure
+is beginning to impact morale and sprint predictability. This risk should
+be monitored closely over the next two sprints.
+
+At this stage, escalation may be required if vendor approval timelines
+slip further or if delivery capacity constraints persist.
