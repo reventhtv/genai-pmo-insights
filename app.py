@@ -41,6 +41,15 @@ if uploaded_file:
         st.markdown(f"**Subject:** {result['subject']}")
         st.write(result["body"])
 
+        # ------------------ Escalation Summary ------------------
+        st.subheader("🚨 Escalation Summary")
+        
+        if result.get("escalation_summary"):
+            for item in result["escalation_summary"]:
+                st.markdown(item)
+        else:
+            st.write("No items require immediate escalation.")
+
         # ------------------ Warnings ------------------
         st.subheader("⚠️ Early Warning Signals")
         if result["warnings"]:
