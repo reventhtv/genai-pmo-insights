@@ -1,56 +1,84 @@
-🧠 GenAI PMO Insights (GPMOID)
+🧠 GenAI PMO Insights
 
-A lightweight, privacy-first GenAI tool that turns raw stakeholder updates into actionable PMO insights — executive communication, early warnings, and structured risks.
+GenAI PMO Insights is a lightweight, privacy-first decision support tool for PMOs.
+It converts unstructured stakeholder updates into escalation signals, prioritized risks, and clear action guidance — helping leaders focus on what actually needs attention.
 
-Built for real PMOs, not AI demos.
+This is not an AI summarizer.
+It is designed for governance, predictability, and decision-making.
 
 What It Does
 
-From a plain-text stakeholder update, the tool generates:
+From a plain-text stakeholder update, the tool produces:
 
-Executive-ready email (subject + body)
+🚨 Escalation Summary – what needs leadership attention now
 
-Early warning signals
-(Delay, Cost, Morale, Dependency, Risk)
+⚠️ Early Warning Signals – delay, dependency, morale, cost
 
-Structured risks with category and severity
+📊 Structured Risks – category, severity, owner
 
-Clear dashboard view for fast review
+🧭 Response Guidance – recommended action and accountability
 
-Why It Matters
+🔥 Risk Heat Indicator – priority based on severity × attention
 
-PMOs don’t need summaries.
-They need signals, risks, and clarity — early and consistently.
+All outputs are review-ready and PMO-aligned.
 
-This project explores how GenAI can support:
+Why This Exists
 
-Risk identification
+In real programs:
 
-Predictable decision-making
+Stakeholder updates are noisy
 
-Better stakeholder communication
+Escalation is subjective
 
-Architecture (Hybrid AI)
+Risks are discovered too late
 
-LLM-first for analysis
+This project explores how GenAI + deterministic logic can support PMOs by:
 
-Deterministic fallback if LLM fails
+Surfacing weak signals early
 
-Designed to degrade gracefully — enterprise-ready behavior.
+Making escalation criteria explicit
+
+Turning insight into action, not more text
+
+Architecture (Hybrid by Design)
+
+LLM-first for interpretation and insight generation
+
+Deterministic fallback when AI is unavailable or unreliable
+
+This ensures:
+
+Predictable behavior
+
+Explainable decisions
+
+Enterprise-ready degradation
+
+AI is used where it helps — never where it becomes a dependency.
+
+Key Design Principles
+
+Intelligence before automation
+
+Explicit escalation logic
+
+Structured, typed outputs (no AI blobs)
+
+Privacy-first (no data persistence)
 
 Project Structure
 genai-pmo-insights/
 ├── app.py                  # Streamlit UI
-├── schemas.py              # Typed outputs
+├── schemas.py              # Typed output models
 ├── services/
-│   ├── analysis_service.py
-│   ├── llm_service.py
-│   └── fallback_service.py
+│   ├── analysis_service.py # Orchestration & escalation logic
+│   ├── llm_service.py      # Optional LLM integration
+│   └── fallback_service.py # Deterministic fallback
 ├── sample_inputs/
 │   └── stakeholder_update.txt
 └── requirements.txt
 
-Privacy by Design
+Privacy & Data Handling
 
 No database
 
@@ -58,41 +86,41 @@ No file storage
 
 No user tracking
 
-In-memory processing only
+All processing is in-memory
 
-Tech Stack
-
-Python
-
-Streamlit
-
-OpenAI API
-
-Pydantic
-
-Pandas
+Designed to be safe to demo and reason about.
 
 Run Locally
 git clone https://github.com/<your-username>/genai-pmo-insights.git
 cd genai-pmo-insights
 pip install -r requirements.txt
-export OPENAI_API_KEY="your_api_key"
+export OPENAI_API_KEY="your_api_key"   # optional
 streamlit run app.py
 
-PMBOK Fit (Conceptual)
 
-Risk Management
+The app works with or without an API key.
 
-Stakeholder Communication
+v1 Scope (Intentionally Limited)
 
-Schedule & Cost Signals
+This version focuses only on decision intelligence:
 
-PMO Governance Support
+Single stakeholder update analysis
 
-Author
+Deterministic escalation and prioritization
 
-Built by a technical PM / TPM with an engineering background, focused on practical GenAI for delivery and governance.
+No workflow automation or notifications
+
+Future versions may explore visualization, trends, or integrations.
+
+About the Project
+
+Built by a technical PM / TPM with an engineering background, focused on practical GenAI for delivery governance — not demos or prompt experiments.
 
 License
 
 MIT
+
+Final note
+
+This project is intentionally opinionated.
+It prioritizes clarity, explainability, and PMO realism over feature breadth.

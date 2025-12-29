@@ -20,7 +20,13 @@ if uploaded_file:
     raw_text = uploaded_file.read().decode("utf-8")
 
     st.subheader("📄 Stakeholder Update")
-    st.text_area("", raw_text, height=220)
+    st.text_area(
+    label="Stakeholder update content",
+    value=raw_text,
+    height=220,
+    label_visibility="collapsed"
+    )
+
 
     if st.button("Analyze Update"):
         with st.spinner("Analyzing project signals..."):
@@ -60,6 +66,6 @@ if uploaded_file:
             ]
         ]
 
-        st.dataframe(df, use_container_width=True)
+        st.dataframe(df, width="stretch")
 
         st.success("Analysis complete.")
