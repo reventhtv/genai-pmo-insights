@@ -53,7 +53,18 @@ if uploaded_file:
         st.subheader("📊 Risk Summary")
         if result["risks"]:
             df = pd.DataFrame(result["risks"])
+            df = df[
+                [
+                    "description",
+                    "category",
+                    "severity",
+                    "response_strategy",
+                    "attention_level",
+                    "suggested_owner"
+                ]
+            ]
             st.dataframe(df, use_container_width=True)
+
         else:
             st.write("No explicit risks identified.")
 
