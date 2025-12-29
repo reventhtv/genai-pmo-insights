@@ -18,7 +18,8 @@ def fallback_analysis():
                 "severity": "High",
                 "response_strategy": "Mitigate",
                 "attention_level": "Immediate",
-                "suggested_owner": "Program Manager"
+                "suggested_owner": "Program Manager",
+                "risk_heat": "High"
             },
             {
                 "description": "Team fatigue due to parallel deliverables",
@@ -26,7 +27,8 @@ def fallback_analysis():
                 "severity": "Medium",
                 "response_strategy": "Mitigate",
                 "attention_level": "Near-term",
-                "suggested_owner": "Engineering Manager"
+                "suggested_owner": "Engineering Manager",
+                "risk_heat": "Low"
             }
         ]
     }
