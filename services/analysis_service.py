@@ -4,7 +4,7 @@ from services.fallback_service import fallback_analysis
 # -----------------------------
 # DEBUG FLAG
 # -----------------------------
-DEBUG = True
+DEBUG = False
 
 
 # -----------------------------
