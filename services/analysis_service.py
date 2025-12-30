@@ -3,57 +3,69 @@ from services.fallback_service import fallback_analysis
 
 
 # -----------------------------
-# Risk Heat Calibration (v1)
+# Risk Heat Calibration
 # -----------------------------
 
 def calculate_risk_heat(severity: str, attention: str) -> str:
-    """
-    PMO-aligned risk heat calculation.
-    Avoids early over-escalation.
-    """
     if severity == "High" and attention == "Immediate":
         return "High"
-
     if severity == "High" and attention == "Near-term":
         return "Medium"
-
     if severity == "Medium" and attention in ["Immediate", "Near-term"]:
         return "Medium"
-
     return "Low"
 
 
 # -----------------------------
-# Escalation Logic (v1)
+# Post-LLM Normalization (KEY FIX)
+# -----------------------------
+
+EARLY_STAGE_PHRASES = [
+    "initial discussions",
+    "ongoing",
+    "pending",
+    "no immediate impact",
+    "at this stage",
+    "monitoring",
+    "no major risks"
+]
+
+
+def normalize_risk_based_on_text(risk: dict, stakeholder_text: str) -> dict:
+    """
+    Downgrades early-stage risks even if LLM over-escalates.
+    This is critical for v2 signal detection.
+    """
+    text = stakeholder_text.lower()
+
+    early_signal = any(p in text for p in EARLY_STAGE_PHRASES)
+
+    if early_signal:
+        # Force conservative baseline
+        risk["severity"] = "Medium"
+        risk["attention_level"] = "Near-term"
+
+    return risk
+
+
+# -----------------------------
+# Escalation Logic
 # -----------------------------
 
 ESCALATION_KEYWORDS_STRONG = [
-    "leadership attention",
-    "schedule rebaseline",
     "uat at risk",
+    "schedule rebaseline",
+    "leadership attention",
     "timeline will be impacted",
-    "requires escalation",
-    "approval not received and"
-]
-
-ESCALATION_KEYWORDS_WEAK = [
-    "may be impacted",
-    "risk that",
-    "if approval is not received",
-    "potential delay"
+    "requires escalation"
 ]
 
 
 def build_escalation_summary(risks, stakeholder_text: str):
-    """
-    Builds escalation summary conservatively.
-    Escalates only when signals are explicit and actionable.
-    """
     escalations = []
     text = stakeholder_text.lower()
 
     strong_signal = any(k in text for k in ESCALATION_KEYWORDS_STRONG)
-    weak_signal = any(k in text for k in ESCALATION_KEYWORDS_WEAK)
 
     for risk in risks:
         explicit_critical = (
@@ -61,7 +73,6 @@ def build_escalation_summary(risks, stakeholder_text: str):
             and risk["attention_level"] == "Immediate"
         )
 
-        # Escalate only on strong signals or explicit criticality
         if strong_signal or explicit_critical:
             escalations.append(
                 f"- {risk['description']} "
@@ -69,33 +80,25 @@ def build_escalation_summary(risks, stakeholder_text: str):
                 f"Severity: {risk['severity']})"
             )
 
-    # Weak signals alone do NOT trigger escalation
     return escalations
 
 
 # -----------------------------
-# Main Analysis Entry Point
+# Main Analysis Entry
 # -----------------------------
 
 def analyze_update(text: str):
-    """
-    Analyzes a single stakeholder update using a hybrid approach:
-    - LLM when available
-    - Deterministic fallback otherwise
-    """
     prompt = f"""
 You are a PMO AI assistant.
 
 Analyze the stakeholder update below and return STRICT JSON only.
+Be conservative. Do NOT escalate early unless timeline impact is explicit.
 
-Your goal is to identify risks conservatively and realistically.
-Do NOT escalate early unless timeline impact or leadership attention is explicit.
-
-Return JSON in this exact format:
+Return JSON in this format:
 {{
   "subject": "...",
   "body": "...",
-  "warnings": ["Delay", "Cost", "Morale", "Dependency", "Risk"],
+  "warnings": [],
   "risks": [
     {{
       "description": "...",
@@ -103,7 +106,7 @@ Return JSON in this exact format:
       "severity": "Low | Medium | High",
       "response_strategy": "Avoid | Mitigate | Transfer | Accept",
       "attention_level": "Immediate | Near-term | Monitor",
-      "suggested_owner": "PM | Program Manager | Engineering Manager | Vendor Manager"
+      "suggested_owner": "Program Manager | Engineering Manager | Vendor Manager"
     }}
   ]
 }}
@@ -118,12 +121,17 @@ Stakeholder update:
         result = fallback_analysis()
 
     # -----------------------------
-    # Derive risk heat (calibrated)
+    # Normalize risks BEFORE heat calc
     # -----------------------------
+    normalized_risks = []
     for risk in result["risks"]:
+        risk = normalize_risk_based_on_text(risk, text)
         risk["risk_heat"] = calculate_risk_heat(
             risk["severity"], risk["attention_level"]
         )
+        normalized_risks.append(risk)
+
+    result["risks"] = normalized_risks
 
     # -----------------------------
     # Build escalation summary
