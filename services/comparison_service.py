@@ -2,7 +2,7 @@
 comparison_service.py
 
 Implements v2 multi-update comparison logic for GPMOID.
-This layer is deterministic, stateless, and PMO-aligned.
+Deterministic, stateless, PMO-aligned.
 """
 
 from collections import defaultdict
@@ -92,7 +92,7 @@ def build_snapshot_comparison(previous: Dict, current: Dict) -> Dict:
 
 
 # -----------------------------
-# Change Detection (delta-based)
+# Change Detection
 # -----------------------------
 
 def detect_changes(previous: Dict, current: Dict) -> Dict:
@@ -132,15 +132,10 @@ def detect_changes(previous: Dict, current: Dict) -> Dict:
 
 
 # -----------------------------
-# Trend Escalation (FIXED)
+# Trend Escalation
 # -----------------------------
 
 def detect_trend_escalations(risk_history: Dict) -> List[str]:
-    """
-    Detects trend-based escalation using:
-    1. Worsening trend (Medium → High → Higher)
-    2. Persistent high risk (High across multiple updates)
-    """
     escalations = []
 
     for risk_id, states in risk_history.items():
@@ -148,20 +143,20 @@ def detect_trend_escalations(risk_history: Dict) -> List[str]:
             continue
 
         heats = [heat_rank(s["risk_heat"]) for s in states]
-        latest = states[-1]["display_name"]
+        name = states[-1]["display_name"]
 
-        # Case 1: Worsening trend
+        # Worsening trend
         if len(heats) >= 3:
             if heats[-1] > heats[-2] >= heats[-3]:
                 escalations.append(
-                    f"{latest} shows a worsening risk trend across updates"
+                    f"{name} shows a worsening risk trend across updates"
                 )
                 continue
 
-        # Case 2: Persistent high risk
+        # Persistent high risk
         if heats[-1] == 3 and heats[-2] == 3:
             escalations.append(
-                f"{latest} remains at high risk across multiple updates"
+                f"{name} remains at high risk across multiple updates"
             )
 
     return escalations
@@ -204,7 +199,7 @@ def build_risk_comparison_table(
 
 
 # -----------------------------
-# Leadership Narrative
+# Leadership Narrative (POLISHED)
 # -----------------------------
 
 def generate_leadership_summary(
@@ -216,6 +211,11 @@ def generate_leadership_summary(
     if change_summary["escalated"]:
         lines.append(
             f"{len(change_summary['escalated'])} risk(s) have escalated since the last update."
+        )
+
+    if change_summary["de_escalated"] and not change_summary["escalated"]:
+        lines.append(
+            f"{len(change_summary['de_escalated'])} risk(s) have de-escalated since the last update."
         )
 
     if trend_escalations:
