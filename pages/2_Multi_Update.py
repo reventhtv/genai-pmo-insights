@@ -5,14 +5,11 @@ from services.comparison_service import compare_updates
 
 
 # ---------------- Page Config ----------------
-st.set_page_config(
-    page_title="Multi-Update Comparison | GPMOID",
-    layout="wide"
-)
+
 
 st.title("📊 Multi-Update Comparison")
 st.caption(
-    "Understand how risks, escalation, and priorities evolve across stakeholder updates."
+    "Understand how risks, escalation and priorities evolve across stakeholder updates."
 )
 
 # ---------------- Upload Section ----------------

@@ -9,7 +9,7 @@ st.set_page_config(
 )
 
 st.title("🧠 GenAI PMO Insights")
-st.caption("Escalation-aware PMO insights with risk prioritization.")
+st.caption("Single stakeholder update analysis : Escalation aware PMO insights with risk prioritization.")
 
 uploaded_file = st.file_uploader(
     "Upload stakeholder update (.txt)",
