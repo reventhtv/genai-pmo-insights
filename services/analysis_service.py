@@ -33,15 +33,36 @@ EARLY_STAGE_PHRASES = [
 
 def normalize_risk_based_on_text(risk: dict, stakeholder_text: str) -> dict:
     """
-    Downgrades early-stage risks even if LLM over-escalates.
-    This is critical for v2 signal detection.
+    Robust early-stage risk normalization.
+    Guards against LLM over-escalation.
     """
     text = stakeholder_text.lower()
 
-    early_signal = any(p in text for p in EARLY_STAGE_PHRASES)
+    early_indicators = [
+        "initial",
+        "ongoing",
+        "pending",
+        "monitor",
+        "no immediate",
+        "at this stage",
+        "no major",
+        "early"
+    ]
 
-    if early_signal:
-        # Force conservative baseline
+    impact_indicators = [
+        "uat at risk",
+        "timeline impacted",
+        "schedule rebaseline",
+        "delay confirmed",
+        "will impact",
+        "now at risk"
+    ]
+
+    is_early = any(k in text for k in early_indicators)
+    has_real_impact = any(k in text for k in impact_indicators)
+
+    # Only downgrade if early-stage AND no real impact
+    if is_early and not has_real_impact:
         risk["severity"] = "Medium"
         risk["attention_level"] = "Near-term"
 
