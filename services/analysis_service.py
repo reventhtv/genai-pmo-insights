@@ -1,6 +1,11 @@
 from services.llm_service import call_llm
 from services.fallback_service import fallback_analysis
 
+# -----------------------------
+# DEBUG FLAG
+# -----------------------------
+DEBUG = True
+
 
 # -----------------------------
 # Risk Heat Calibration
@@ -17,19 +22,8 @@ def calculate_risk_heat(severity: str, attention: str) -> str:
 
 
 # -----------------------------
-# Post-LLM Normalization (KEY FIX)
+# Post-LLM Normalization
 # -----------------------------
-
-EARLY_STAGE_PHRASES = [
-    "initial discussions",
-    "ongoing",
-    "pending",
-    "no immediate impact",
-    "at this stage",
-    "monitoring",
-    "no major risks"
-]
-
 
 def normalize_risk_based_on_text(risk: dict, stakeholder_text: str) -> dict:
     """
@@ -61,7 +55,11 @@ def normalize_risk_based_on_text(risk: dict, stakeholder_text: str) -> dict:
     is_early = any(k in text for k in early_indicators)
     has_real_impact = any(k in text for k in impact_indicators)
 
-    # Only downgrade if early-stage AND no real impact
+    if DEBUG:
+        print("=== NORMALIZATION CHECK ===")
+        print("is_early:", is_early)
+        print("has_real_impact:", has_real_impact)
+
     if is_early and not has_real_impact:
         risk["severity"] = "Medium"
         risk["attention_level"] = "Near-term"
@@ -141,24 +139,39 @@ Stakeholder update:
     if result is None:
         result = fallback_analysis()
 
-    # -----------------------------
-    # Normalize risks BEFORE heat calc
-    # -----------------------------
     normalized_risks = []
-    for risk in result["risks"]:
+
+    for idx, risk in enumerate(result["risks"]):
+        if DEBUG:
+            print("====================================")
+            print(f"RISK INDEX: {idx}")
+            print("=== RAW LLM RISK ===")
+            print(risk)
+
         risk = normalize_risk_based_on_text(risk, text)
+
+        if DEBUG:
+            print("=== AFTER NORMALIZATION ===")
+            print(risk)
+
         risk["risk_heat"] = calculate_risk_heat(
             risk["severity"], risk["attention_level"]
         )
+
+        if DEBUG:
+            print("=== AFTER HEAT CALC ===")
+            print(risk)
+
         normalized_risks.append(risk)
 
     result["risks"] = normalized_risks
 
-    # -----------------------------
-    # Build escalation summary
-    # -----------------------------
     result["escalation_summary"] = build_escalation_summary(
         result["risks"], text
     )
+
+    if DEBUG:
+        print("=== FINAL ANALYSIS OUTPUT ===")
+        print(result)
 
     return result
