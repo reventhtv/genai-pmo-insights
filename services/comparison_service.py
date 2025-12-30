@@ -2,7 +2,7 @@
 comparison_service.py
 
 Implements v2 multi-update comparison logic for GPMOID.
-This layer is deterministic, stateless, and UI-driven.
+This layer is deterministic, stateless, and PMO-aligned.
 """
 
 from collections import defaultdict
@@ -14,10 +14,6 @@ from typing import List, Dict
 # -----------------------------
 
 def derive_risk_id(description: str, category: str) -> str:
-    """
-    Derives a stable risk_id from description + category.
-    Simple heuristic for v2 (can be replaced with embeddings later).
-    """
     text = f"{category} {description}".lower()
 
     if "vendor" in text or "external" in text:
@@ -33,7 +29,6 @@ def derive_risk_id(description: str, category: str) -> str:
 
 
 def heat_rank(heat: str) -> int:
-    """Converts risk heat to comparable rank."""
     return {"Low": 1, "Medium": 2, "High": 3}.get(heat, 0)
 
 
@@ -42,9 +37,6 @@ def heat_rank(heat: str) -> int:
 # -----------------------------
 
 def normalize_risks(analyzed_update: Dict) -> Dict:
-    """
-    Converts risk list into a dictionary keyed by risk_id.
-    """
     normalized = {}
 
     for risk in analyzed_update.get("risks", []):
@@ -69,9 +61,6 @@ def normalize_risks(analyzed_update: Dict) -> Dict:
 # -----------------------------
 
 def build_snapshot_comparison(previous: Dict, current: Dict) -> Dict:
-    """
-    Builds previous vs current snapshot.
-    """
     def highest_heat(risks: Dict) -> str:
         if not risks:
             return "Low"
@@ -103,13 +92,10 @@ def build_snapshot_comparison(previous: Dict, current: Dict) -> Dict:
 
 
 # -----------------------------
-# Change Detection
+# Change Detection (delta-based)
 # -----------------------------
 
 def detect_changes(previous: Dict, current: Dict) -> Dict:
-    """
-    Detects new, escalated, de-escalated, and unchanged risks.
-    """
     changes = {
         "new": [],
         "escalated": [],
@@ -146,24 +132,36 @@ def detect_changes(previous: Dict, current: Dict) -> Dict:
 
 
 # -----------------------------
-# Trend Escalation
+# Trend Escalation (FIXED)
 # -----------------------------
 
 def detect_trend_escalations(risk_history: Dict) -> List[str]:
     """
-    Detects escalation based on repeated worsening.
+    Detects trend-based escalation using:
+    1. Worsening trend (Medium → High → Higher)
+    2. Persistent high risk (High across multiple updates)
     """
     escalations = []
 
     for risk_id, states in risk_history.items():
-        if len(states) < 3:
+        if len(states) < 2:
             continue
 
-        heat_trend = [heat_rank(s["risk_heat"]) for s in states[-3:]]
+        heats = [heat_rank(s["risk_heat"]) for s in states]
+        latest = states[-1]["display_name"]
 
-        if heat_trend[-1] > heat_trend[-2] and heat_trend[-2] >= heat_trend[-3]:
+        # Case 1: Worsening trend
+        if len(heats) >= 3:
+            if heats[-1] > heats[-2] >= heats[-3]:
+                escalations.append(
+                    f"{latest} shows a worsening risk trend across updates"
+                )
+                continue
+
+        # Case 2: Persistent high risk
+        if heats[-1] == 3 and heats[-2] == 3:
             escalations.append(
-                f"{states[-1]['display_name']} escalated in recent updates"
+                f"{latest} remains at high risk across multiple updates"
             )
 
     return escalations
@@ -176,9 +174,6 @@ def detect_trend_escalations(risk_history: Dict) -> List[str]:
 def build_risk_comparison_table(
     normalized_updates: List[Dict]
 ) -> List[Dict]:
-    """
-    Builds a comparison table across updates.
-    """
     table = defaultdict(dict)
 
     for idx, update in enumerate(normalized_updates):
@@ -195,7 +190,12 @@ def build_risk_comparison_table(
             if k.startswith("U")
         ]
 
-        trend = "Up" if heats[-1] > heats[0] else "Down" if heats[-1] < heats[0] else "Stable"
+        if heats[-1] > heats[0]:
+            trend = "Up"
+        elif heats[-1] < heats[0]:
+            trend = "Down"
+        else:
+            trend = "Stable"
 
         values["trend"] = trend
         rows.append(values)
@@ -211,9 +211,6 @@ def generate_leadership_summary(
     change_summary: Dict,
     trend_escalations: List[str]
 ) -> str:
-    """
-    Generates a concise leadership narrative.
-    """
     lines = []
 
     if change_summary["escalated"]:
@@ -223,12 +220,12 @@ def generate_leadership_summary(
 
     if trend_escalations:
         lines.append(
-            f"{len(trend_escalations)} risk(s) show sustained escalation trends."
+            f"{len(trend_escalations)} risk(s) require continued leadership attention."
         )
 
     if not lines:
         lines.append(
-            "No material changes or escalation trends detected across updates."
+            "No material changes detected; risks remain stable at current levels."
         )
 
     return " ".join(lines)
@@ -239,9 +236,6 @@ def generate_leadership_summary(
 # -----------------------------
 
 def compare_updates(analyzed_updates: List[Dict]) -> Dict:
-    """
-    Entry point for v2 comparison logic.
-    """
     if len(analyzed_updates) < 2:
         raise ValueError("At least two analyzed updates are required")
 
@@ -258,7 +252,6 @@ def compare_updates(analyzed_updates: List[Dict]) -> Dict:
         normalized[-2], normalized[-1]
     )
 
-    # Build risk history for trend detection
     risk_history = defaultdict(list)
     for update in normalized:
         for risk_id, risk in update.items():
