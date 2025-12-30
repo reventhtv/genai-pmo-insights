@@ -3,36 +3,59 @@ import pandas as pd
 from services.analysis_service import analyze_update
 
 
+# -----------------------------
+# Page Config
+# -----------------------------
 st.set_page_config(
-    page_title="GenAI PMO Insights",
+    page_title="Single Update Analysis",
     layout="wide"
 )
 
-st.title("🧠 GenAI PMO Insights")
-st.caption("Single stakeholder update analysis : Escalation aware PMO insights with risk prioritization.")
 
+# -----------------------------
+# Header
+# -----------------------------
+st.title("🧠 Single Update Analysis")
+st.caption(
+    "Escalation-aware PMO insights for a single stakeholder update."
+)
+
+st.divider()
+
+
+# -----------------------------
+# File Upload
+# -----------------------------
 uploaded_file = st.file_uploader(
     "Upload stakeholder update (.txt)",
     type=["txt"]
 )
+
+raw_text = ""
 
 if uploaded_file:
     raw_text = uploaded_file.read().decode("utf-8")
 
     st.subheader("📄 Stakeholder Update")
     st.text_area(
-    label="Stakeholder update content",
-    value=raw_text,
-    height=220,
-    label_visibility="collapsed"
+        label="Stakeholder update content",
+        value=raw_text,
+        height=220,
+        label_visibility="collapsed"
     )
 
+    st.divider()
 
+    # -----------------------------
+    # Analysis Trigger
+    # -----------------------------
     if st.button("Analyze Update"):
         with st.spinner("Analyzing project signals..."):
             result = analyze_update(raw_text)
 
-        # 🚨 Escalation Summary
+        # -----------------------------
+        # Escalation Summary
+        # -----------------------------
         st.subheader("🚨 Escalation Summary")
         if result.get("escalation_summary"):
             for item in result["escalation_summary"]:
@@ -40,17 +63,32 @@ if uploaded_file:
         else:
             st.write("No items require immediate escalation.")
 
-        # ✉️ Executive Email
+        st.divider()
+
+        # -----------------------------
+        # Executive Email Preview
+        # -----------------------------
         st.subheader("✉️ Executive Email Preview")
         st.markdown(f"**Subject:** {result['subject']}")
         st.write(result["body"])
 
-        # ⚠️ Warnings
-        st.subheader("⚠️ Early Warning Signals")
-        for w in result["warnings"]:
-            st.markdown(f"- 🔶 {w}")
+        st.divider()
 
-        # 📊 Risks with Heat
+        # -----------------------------
+        # Early Warning Signals
+        # -----------------------------
+        st.subheader("⚠️ Early Warning Signals")
+        if result["warnings"]:
+            for w in result["warnings"]:
+                st.markdown(f"- 🔶 {w}")
+        else:
+            st.write("No early warning signals detected.")
+
+        st.divider()
+
+        # -----------------------------
+        # Risk Heat Summary
+        # -----------------------------
         st.subheader("🔥 Risk Heat Summary")
 
         df = pd.DataFrame(result["risks"])

@@ -4,15 +4,17 @@ from services.analysis_service import analyze_update
 from services.comparison_service import compare_updates
 
 
-# ---------------- Page Config ----------------
+# ---------------- Page Header ----------------
 
-
-st.title("📊 Multi-Update Comparison")
+st.title("📊 Update Comparison")
 st.caption(
     "Understand how risks, escalation and priorities evolve across stakeholder updates."
 )
 
+st.divider()
+
 # ---------------- Upload Section ----------------
+
 uploaded_files = st.file_uploader(
     "Upload 2–5 stakeholder updates (.txt)",
     type=["txt"],
@@ -41,8 +43,10 @@ if uploaded_files:
             # ---- Step 2: Run v2 comparison ----
             comparison = compare_updates(analyzed_updates)
 
-        # ---------------- Snapshot Comparison ----------------
-        with st.expander("🔍 Snapshot: Previous vs Current", expanded=False):
+        st.divider()
+
+        # ---------------- Last Update Comparison ----------------
+        with st.expander("🔍 Last Update Comparison", expanded=False):
             prev = comparison["snapshot"]["previous"]
             curr = comparison["snapshot"]["current"]
 
@@ -60,7 +64,9 @@ if uploaded_files:
                 st.write(f"Highest Risk Heat: {curr['highest_risk_heat']}")
                 st.write(f"Top Risk: {curr['top_risk']}")
 
-        # ---------------- What Changed (Hero Section) ----------------
+        st.divider()
+
+        # ---------------- What Changed ----------------
         st.subheader("📈 What Changed Since Last Update")
 
         changes = comparison["change_summary"]
@@ -83,16 +89,32 @@ if uploaded_files:
 
         # ---------------- Trend-Based Escalation ----------------
         if comparison["trend_escalation"]:
+            st.divider()
             st.subheader("🚨 Escalation (Trend-Based)")
             for item in comparison["trend_escalation"]:
                 st.markdown(f"- {item}")
 
+        st.divider()
+
         # ---------------- Risk Comparison Table ----------------
         with st.expander("📊 Risk Comparison Details", expanded=False):
-            st.dataframe(
-                comparison["risk_comparison_table"],
-                width="stretch"
-            )
+
+            table = comparison["risk_comparison_table"]
+
+            # Rename columns for UX clarity
+            for row in table:
+                # Rename trend column
+                row["Risk Trend"] = row.pop("trend")
+
+                # Rename U1, U2... → Week 1, Week 2...
+                for key in list(row.keys()):
+                    if key.startswith("U"):
+                        week_no = key.replace("U", "")
+                        row[f"Week {week_no}"] = row.pop(key)
+
+            st.dataframe(table, width="stretch")
+
+        st.divider()
 
         # ---------------- Leadership Narrative ----------------
         st.subheader("🧭 Leadership Summary")
