@@ -1,0 +1,12 @@
+The project is facing increased delivery risk this week.
+
+The external payments vendor has still not provided final API
+approval despite multiple follow-ups. As a result, UAT start
+dates are now at risk and a schedule rebaseline may be required.
+
+Engineering teams continue to operate under sustained workload
+pressure. While no attrition concerns exist, fatigue is becoming
+visible and sprint predictability has reduced.
+
+Leadership attention may be required if vendor approval is not
+secured immediately.

@@ -1,0 +1,11 @@
+Project progress continues, however some concerns have emerged.
+
+Approval from the external payments vendor has been delayed beyond
+the originally agreed timeline. If approval is not received within
+the next week, integration testing may be impacted.
+
+Engineering workload has increased due to parallel priorities.
+While delivery continues, sustained pressure may begin to affect
+predictability and morale.
+
+Escalation may be required if vendor timelines slip further.
