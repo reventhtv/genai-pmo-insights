@@ -1,5 +1,6 @@
 from services.llm_service import call_llm
 from services.fallback_service import fallback_analysis
+from services.memory_service import update_memory
 
 # -----------------------------
 # DEBUG FLAG
@@ -173,5 +174,10 @@ Stakeholder update:
     if DEBUG:
         print("=== FINAL ANALYSIS OUTPUT ===")
         print(result)
+
+    # -----------------------------
+    # 🔁 Longitudinal Memory Update (NEW, SAFE)
+    # -----------------------------
+    update_memory(result)
 
     return result
