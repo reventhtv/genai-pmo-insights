@@ -9,18 +9,33 @@ from datetime import datetime
 
 MEMORY_DIR = "memory"
 DEFAULT_PROJECT_ID = "default"
-MEMORY_VERSION = "1.1"  # bumped due to time semantics change
+MEMORY_VERSION = "1.2"  # explicit period support
 
-RESOLUTION_ABSENCE_THRESHOLD = 2  # consecutive weeks
+RESOLUTION_ABSENCE_THRESHOLD = 2  # consecutive periods
 
 
 # -----------------------------
 # Helpers
 # -----------------------------
 
-def current_week():
-    """Logical time unit for GPMOID (ISO week)."""
-    return datetime.utcnow().strftime("%Y-W%U")
+def current_period():
+    """
+    Default logical period (ISO week).
+    Example: 2026-W05
+    """
+    year, week, _ = datetime.utcnow().isocalendar()
+    return f"{year}-W{week:02d}"
+
+
+def normalize_period(period_id):
+    """
+    Option A:
+    - Trust explicit period override
+    - Guard against empty / invalid values
+    """
+    if period_id and isinstance(period_id, str) and period_id.strip():
+        return period_id.strip()
+    return current_period()
 
 
 def memory_file_path(project_id=DEFAULT_PROJECT_ID):
@@ -44,7 +59,7 @@ def load_memory(project_id=DEFAULT_PROJECT_ID):
         return {
             "memory_version": MEMORY_VERSION,
             "project_id": project_id,
-            "last_updated_week": None,
+            "last_updated_period": None,
             "risks": {}
         }
 
@@ -53,9 +68,7 @@ def load_memory(project_id=DEFAULT_PROJECT_ID):
 
 
 def save_memory(memory, project_id=DEFAULT_PROJECT_ID):
-    memory["last_updated_week"] = current_week()
     path = memory_file_path(project_id)
-
     with open(path, "w") as f:
         json.dump(memory, f, indent=2)
 
@@ -64,26 +77,30 @@ def save_memory(memory, project_id=DEFAULT_PROJECT_ID):
 # Core Update Logic
 # -----------------------------
 
-def update_memory(analyzed_result, project_id=DEFAULT_PROJECT_ID):
+def update_memory(analyzed_result, project_id=DEFAULT_PROJECT_ID, period_id=None):
     """
-    Updates longitudinal memory using WEEK as the time unit.
-    Duplicate uploads within the same week are ignored.
+    Updates longitudinal memory.
+
+    Option A:
+    - period_id provided  -> trusted logical time (testing / replay)
+    - period_id None      -> current ISO week (normal usage)
     """
     memory = load_memory(project_id)
-    this_week = current_week()
+    period = normalize_period(period_id)
 
-    risks_seen_this_week = set()
+    memory["last_updated_period"] = period
+    risks_seen_this_period = set()
 
     for risk in analyzed_result.get("risks", []):
         risk_id = risk["risk_id"]
-        risks_seen_this_week.add(risk_id)
+        risks_seen_this_period.add(risk_id)
 
         if risk_id not in memory["risks"]:
-            memory["risks"][risk_id] = _create_new_risk_record(risk, this_week)
+            memory["risks"][risk_id] = _create_new_risk_record(risk, period)
         else:
-            _update_existing_risk(memory["risks"][risk_id], risk, this_week)
+            _update_existing_risk(memory["risks"][risk_id], risk, period)
 
-    _handle_missing_risks(memory["risks"], risks_seen_this_week, this_week)
+    _handle_missing_risks(memory["risks"], risks_seen_this_period, period)
 
     save_memory(memory, project_id)
     return memory
@@ -93,15 +110,15 @@ def update_memory(analyzed_result, project_id=DEFAULT_PROJECT_ID):
 # Risk Record Handlers
 # -----------------------------
 
-def _create_new_risk_record(risk, week):
+def _create_new_risk_record(risk, period):
     return {
         "risk_id": risk["risk_id"],
         "category": risk["category"],
 
-        "first_seen_week": week,
-        "last_seen_week": week,
-        "weeks_open": 1,
-        "weeks_seen": [week],  # 🔑 prevents duplicates
+        "first_seen_period": period,
+        "last_seen_period": period,
+        "periods_open": 1,
+        "periods_seen": [period],
 
         "heat_history": [risk["risk_heat"]],
         "attention_history": [risk["attention_level"]],
@@ -114,24 +131,24 @@ def _create_new_risk_record(risk, week):
 
         "resolution": {
             "is_resolved": False,
-            "resolved_week": None,
+            "resolved_period": None,
             "resolution_reason": None,
             "absence_count": 0
         }
     }
 
 
-def _update_existing_risk(record, risk, week):
-    # ⛔ Ignore duplicate uploads within same week
-    if week in record["weeks_seen"]:
+def _update_existing_risk(record, risk, period):
+    # Ignore duplicate updates within same period
+    if period in record["periods_seen"]:
         return
 
     prev_heat = record["heat_history"][-1]
     curr_heat = risk["risk_heat"]
 
-    record["weeks_seen"].append(week)
-    record["weeks_open"] += 1
-    record["last_seen_week"] = week
+    record["periods_seen"].append(period)
+    record["periods_open"] += 1
+    record["last_seen_period"] = period
     record["heat_history"].append(curr_heat)
     record["attention_history"].append(risk["attention_level"])
 
@@ -149,22 +166,21 @@ def _update_existing_risk(record, risk, week):
     if record["resolution"]["is_resolved"]:
         record["recurrence_count"] += 1
         record["resolution"]["is_resolved"] = False
-        record["resolution"]["resolved_week"] = None
+        record["resolution"]["resolved_period"] = None
         record["resolution"]["resolution_reason"] = None
         record["current_status"] = "Recurring"
 
 
-def _handle_missing_risks(risks, seen_ids, week):
+def _handle_missing_risks(risks, seen_ids, period):
     for risk_id, record in risks.items():
         if risk_id not in seen_ids and not record["resolution"]["is_resolved"]:
-            # Only increment absence once per week
-            if record["last_seen_week"] != week:
+            if record["last_seen_period"] != period:
                 record["resolution"]["absence_count"] += 1
 
             if record["resolution"]["absence_count"] >= RESOLUTION_ABSENCE_THRESHOLD:
                 record["resolution"]["is_resolved"] = True
-                record["resolution"]["resolved_week"] = week
-                record["resolution"]["resolution_reason"] = "Not observed in recent updates"
+                record["resolution"]["resolved_period"] = period
+                record["resolution"]["resolution_reason"] = "Not observed in recent periods"
                 record["current_status"] = "Resolved"
 
 

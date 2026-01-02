@@ -130,7 +130,14 @@ def build_escalation_summary(risks, stakeholder_text: str):
 # Main Analysis Entry
 # -----------------------------
 
-def analyze_update(text: str):
+def analyze_update(text: str, period_id=None):
+    """
+    Analyze a single stakeholder update.
+
+    period_id:
+    - None → current logical week (default behavior)
+    - Provided → explicit logical period (Option A, demo/replay)
+    """
     prompt = f"""
 You are a PMO AI assistant.
 
@@ -172,17 +179,16 @@ Stakeholder update:
             print("=== RAW LLM RISK ===")
             print(risk)
 
-        # Normalize language-based escalation
         risk = normalize_risk_based_on_text(risk, text)
 
-        # 🔑 Derive stable risk_id (REQUIRED FOR MEMORY)
         risk["risk_id"] = derive_risk_id(
             risk["description"],
             risk["category"]
         )
 
         risk["risk_heat"] = calculate_risk_heat(
-            risk["severity"], risk["attention_level"]
+            risk["severity"],
+            risk["attention_level"]
         )
 
         if DEBUG:
@@ -197,13 +203,12 @@ Stakeholder update:
         result["risks"], text
     )
 
-    if DEBUG:
-        print("=== FINAL ANALYSIS OUTPUT ===")
-        print(result)
-
     # -----------------------------
     # 🔁 Longitudinal Memory Update
     # -----------------------------
-    update_memory(result)
+    update_memory(
+        result,
+        period_id=period_id
+    )
 
     return result

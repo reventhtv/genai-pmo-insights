@@ -4,7 +4,24 @@ from services.analysis_service import analyze_update
 from services.comparison_service import compare_updates
 
 
-# ---------------- Page Header ----------------
+# -----------------------------
+# Helpers (UI-only, deterministic)
+# -----------------------------
+
+def build_demo_weeks(start_year=2026, start_week=1, count=5):
+    """
+    Build consecutive ISO week labels for demo / replay.
+    Example: 2026-W01, 2026-W02, ...
+    """
+    return [
+        f"{start_year}-W{start_week + i:02d}"
+        for i in range(count)
+    ]
+
+
+# -----------------------------
+# Page Header
+# -----------------------------
 
 st.title("📊 Update Comparison")
 st.caption(
@@ -13,7 +30,9 @@ st.caption(
 
 st.divider()
 
-# ---------------- Upload Section ----------------
+# -----------------------------
+# Upload Section
+# -----------------------------
 
 uploaded_files = st.file_uploader(
     "Upload 2–5 stakeholder updates (.txt)",
@@ -34,18 +53,43 @@ if uploaded_files:
         with st.spinner("Analyzing and comparing updates..."):
             analyzed_updates = []
 
-            # ---- Step 1: Run v1 analysis on each update ----
-            for file in uploaded_files:
+            # -----------------------------
+            # Option A: Explicit demo weeks
+            # -----------------------------
+            demo_weeks = build_demo_weeks(
+                count=len(uploaded_files)
+            )
+
+            # UI hint (explicit but lightweight)
+            st.info(
+                f"🕒 Demo mode: Updates are analyzed as consecutive ISO weeks "
+                f"({demo_weeks[0]} → {demo_weeks[-1]}), based on upload order."
+            )
+
+            # -----------------------------
+            # Step 1: Analyze each update
+            # -----------------------------
+            for idx, file in enumerate(uploaded_files):
                 text = file.read().decode("utf-8")
-                analysis = analyze_update(text)
+                period_id = demo_weeks[idx]
+
+                analysis = analyze_update(
+                    text,
+                    period_id=period_id
+                )
+
                 analyzed_updates.append(analysis)
 
-            # ---- Step 2: Run v2 comparison ----
+            # -----------------------------
+            # Step 2: Run comparison
+            # -----------------------------
             comparison = compare_updates(analyzed_updates)
 
         st.divider()
 
-        # ---------------- Last Update Comparison ----------------
+        # -----------------------------
+        # Last Update Comparison
+        # -----------------------------
         with st.expander("🔍 Last Update Comparison", expanded=False):
             prev = comparison["snapshot"]["previous"]
             curr = comparison["snapshot"]["current"]
@@ -66,7 +110,9 @@ if uploaded_files:
 
         st.divider()
 
-        # ---------------- What Changed ----------------
+        # -----------------------------
+        # What Changed
+        # -----------------------------
         st.subheader("📈 What Changed Since Last Update")
 
         changes = comparison["change_summary"]
@@ -87,7 +133,9 @@ if uploaded_files:
             for item in changes["de_escalated"]:
                 st.markdown(f"🔻 Risk de-escalated: **{item}**")
 
-        # ---------------- Trend-Based Escalation ----------------
+        # -----------------------------
+        # Trend-Based Escalation
+        # -----------------------------
         if comparison["trend_escalation"]:
             st.divider()
             st.subheader("🚨 Escalation (Trend-Based)")
@@ -96,17 +144,16 @@ if uploaded_files:
 
         st.divider()
 
-        # ---------------- Risk Comparison Table ----------------
+        # -----------------------------
+        # Risk Comparison Table
+        # -----------------------------
         with st.expander("📊 Risk Comparison Details", expanded=False):
-
             table = comparison["risk_comparison_table"]
 
-            # Rename columns for UX clarity
+            # UX-friendly column names
             for row in table:
-                # Rename trend column
                 row["Risk Trend"] = row.pop("trend")
 
-                # Rename U1, U2... → Week 1, Week 2...
                 for key in list(row.keys()):
                     if key.startswith("U"):
                         week_no = key.replace("U", "")
@@ -116,6 +163,8 @@ if uploaded_files:
 
         st.divider()
 
-        # ---------------- Leadership Narrative ----------------
+        # -----------------------------
+        # Leadership Narrative
+        # -----------------------------
         st.subheader("🧭 Leadership Summary")
         st.write(comparison["leadership_summary"])
