@@ -1,0 +1,12 @@
+# Python bytecode
+__pycache__/
+*.pyc
+
+# Local memory files (runtime data)
+memory/
+
+# Streamlit
+.streamlit/
+
+# OS
+.DS_Store

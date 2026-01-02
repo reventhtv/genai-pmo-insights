@@ -9,9 +9,9 @@ from datetime import datetime
 
 MEMORY_DIR = "memory"
 DEFAULT_PROJECT_ID = "default"
-MEMORY_VERSION = "1.0"
+MEMORY_VERSION = "1.1"  # bumped due to time semantics change
 
-RESOLUTION_ABSENCE_THRESHOLD = 2  # N consecutive updates
+RESOLUTION_ABSENCE_THRESHOLD = 2  # consecutive weeks
 
 
 # -----------------------------
@@ -19,6 +19,7 @@ RESOLUTION_ABSENCE_THRESHOLD = 2  # N consecutive updates
 # -----------------------------
 
 def current_week():
+    """Logical time unit for GPMOID (ISO week)."""
     return datetime.utcnow().strftime("%Y-W%U")
 
 
@@ -65,9 +66,12 @@ def save_memory(memory, project_id=DEFAULT_PROJECT_ID):
 
 def update_memory(analyzed_result, project_id=DEFAULT_PROJECT_ID):
     """
-    Updates longitudinal memory based on latest analyzed update.
+    Updates longitudinal memory using WEEK as the time unit.
+    Duplicate uploads within the same week are ignored.
     """
     memory = load_memory(project_id)
+    this_week = current_week()
+
     risks_seen_this_week = set()
 
     for risk in analyzed_result.get("risks", []):
@@ -75,14 +79,11 @@ def update_memory(analyzed_result, project_id=DEFAULT_PROJECT_ID):
         risks_seen_this_week.add(risk_id)
 
         if risk_id not in memory["risks"]:
-            # ---- First Seen ----
-            memory["risks"][risk_id] = _create_new_risk_record(risk)
+            memory["risks"][risk_id] = _create_new_risk_record(risk, this_week)
         else:
-            # ---- Existing Risk ----
-            _update_existing_risk(memory["risks"][risk_id], risk)
+            _update_existing_risk(memory["risks"][risk_id], risk, this_week)
 
-    # ---- Handle absence & resolution ----
-    _handle_missing_risks(memory["risks"], risks_seen_this_week)
+    _handle_missing_risks(memory["risks"], risks_seen_this_week, this_week)
 
     save_memory(memory, project_id)
     return memory
@@ -92,8 +93,7 @@ def update_memory(analyzed_result, project_id=DEFAULT_PROJECT_ID):
 # Risk Record Handlers
 # -----------------------------
 
-def _create_new_risk_record(risk):
-    week = current_week()
+def _create_new_risk_record(risk, week):
     return {
         "risk_id": risk["risk_id"],
         "category": risk["category"],
@@ -101,6 +101,7 @@ def _create_new_risk_record(risk):
         "first_seen_week": week,
         "last_seen_week": week,
         "weeks_open": 1,
+        "weeks_seen": [week],  # 🔑 prevents duplicates
 
         "heat_history": [risk["risk_heat"]],
         "attention_history": [risk["attention_level"]],
@@ -120,20 +121,22 @@ def _create_new_risk_record(risk):
     }
 
 
-def _update_existing_risk(record, risk):
-    week = current_week()
+def _update_existing_risk(record, risk, week):
+    # ⛔ Ignore duplicate uploads within same week
+    if week in record["weeks_seen"]:
+        return
+
     prev_heat = record["heat_history"][-1]
     curr_heat = risk["risk_heat"]
 
-    record["last_seen_week"] = week
+    record["weeks_seen"].append(week)
     record["weeks_open"] += 1
+    record["last_seen_week"] = week
     record["heat_history"].append(curr_heat)
     record["attention_history"].append(risk["attention_level"])
 
-    # Reset absence counter
     record["resolution"]["absence_count"] = 0
 
-    # Escalation / De-escalation
     if _heat_rank(curr_heat) > _heat_rank(prev_heat):
         record["escalation_count"] += 1
         record["current_status"] = "Escalated"
@@ -143,7 +146,6 @@ def _update_existing_risk(record, risk):
     else:
         record["current_status"] = "Stable"
 
-    # If it was previously resolved, this is recurrence
     if record["resolution"]["is_resolved"]:
         record["recurrence_count"] += 1
         record["resolution"]["is_resolved"] = False
@@ -152,14 +154,16 @@ def _update_existing_risk(record, risk):
         record["current_status"] = "Recurring"
 
 
-def _handle_missing_risks(risks, seen_ids):
+def _handle_missing_risks(risks, seen_ids, week):
     for risk_id, record in risks.items():
         if risk_id not in seen_ids and not record["resolution"]["is_resolved"]:
-            record["resolution"]["absence_count"] += 1
+            # Only increment absence once per week
+            if record["last_seen_week"] != week:
+                record["resolution"]["absence_count"] += 1
 
             if record["resolution"]["absence_count"] >= RESOLUTION_ABSENCE_THRESHOLD:
                 record["resolution"]["is_resolved"] = True
-                record["resolution"]["resolved_week"] = current_week()
+                record["resolution"]["resolved_week"] = week
                 record["resolution"]["resolution_reason"] = "Not observed in recent updates"
                 record["current_status"] = "Resolved"
 
