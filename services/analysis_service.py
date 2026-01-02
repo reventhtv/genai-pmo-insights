@@ -23,6 +23,29 @@ def calculate_risk_heat(severity: str, attention: str) -> str:
 
 
 # -----------------------------
+# Risk ID Derivation (CRITICAL)
+# -----------------------------
+
+def derive_risk_id(description: str, category: str) -> str:
+    """
+    Generates a stable risk_id for longitudinal memory.
+    Must remain deterministic.
+    """
+    text = f"{category} {description}".lower()
+
+    if "vendor" in text or "external" in text or "third party" in text:
+        return "vendor_dependency"
+    if "team" in text or "morale" in text or "capacity" in text or "bandwidth" in text:
+        return "team_capacity"
+    if "cost" in text or "budget" in text or "overrun" in text:
+        return "cost_overrun"
+    if "quality" in text or "defect" in text or "rework" in text:
+        return "quality_risk"
+
+    return category.lower().replace(" ", "_")
+
+
+# -----------------------------
 # Post-LLM Normalization
 # -----------------------------
 
@@ -149,18 +172,21 @@ Stakeholder update:
             print("=== RAW LLM RISK ===")
             print(risk)
 
+        # Normalize language-based escalation
         risk = normalize_risk_based_on_text(risk, text)
 
-        if DEBUG:
-            print("=== AFTER NORMALIZATION ===")
-            print(risk)
+        # 🔑 Derive stable risk_id (REQUIRED FOR MEMORY)
+        risk["risk_id"] = derive_risk_id(
+            risk["description"],
+            risk["category"]
+        )
 
         risk["risk_heat"] = calculate_risk_heat(
             risk["severity"], risk["attention_level"]
         )
 
         if DEBUG:
-            print("=== AFTER HEAT CALC ===")
+            print("=== FINAL NORMALIZED RISK ===")
             print(risk)
 
         normalized_risks.append(risk)
@@ -176,7 +202,7 @@ Stakeholder update:
         print(result)
 
     # -----------------------------
-    # 🔁 Longitudinal Memory Update (NEW, SAFE)
+    # 🔁 Longitudinal Memory Update
     # -----------------------------
     update_memory(result)
 
