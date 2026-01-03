@@ -1,0 +1,2 @@
+Vendor confirmation delays are now impacting integration timelines and pose a risk to the planned UAT start.
+This dependency has been escalated internally to seek faster resolution.

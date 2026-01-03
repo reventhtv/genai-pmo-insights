@@ -1,0 +1,3 @@
+Sprint execution is progressing as planned.
+Integration with the external vendor is pending final confirmation, which may impact downstream testing if timelines slip.
+The team is currently balancing multiple deliverables but remains focused on committed milestones.
