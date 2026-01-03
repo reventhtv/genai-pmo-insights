@@ -208,6 +208,7 @@ def generate_leadership_summary(
 ) -> str:
     lines = []
 
+    # --- Change-based signals ---
     if change_summary["escalated"]:
         lines.append(
             f"{len(change_summary['escalated'])} risk(s) have escalated since the last update."
@@ -218,14 +219,23 @@ def generate_leadership_summary(
             f"{len(change_summary['de_escalated'])} risk(s) have de-escalated since the last update."
         )
 
-    if trend_escalations:
+    if not change_summary["new"] and not change_summary["escalated"] and not change_summary["de_escalated"]:
         lines.append(
-            f"{len(trend_escalations)} risk(s) require continued leadership attention."
+            "No material changes were observed across recent updates."
         )
 
-    if not lines:
+    # --- Confidence-aware narrative ---
+    if trend_escalations:
         lines.append(
-            "No material changes detected; risks remain stable at current levels."
+            "Several risks continue to show persistent signals, indicating high confidence in ongoing impact."
+        )
+    elif change_summary["de_escalated"]:
+        lines.append(
+            "Some risks appear to be stabilizing, with confidence gradually declining due to reduced signals."
+        )
+    elif not change_summary["new"]:
+        lines.append(
+            "The absence of new or escalating risks increases confidence that the current risk profile is under control."
         )
 
     return " ".join(lines)

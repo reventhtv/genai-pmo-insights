@@ -9,9 +9,9 @@ from datetime import datetime
 
 MEMORY_DIR = "memory"
 DEFAULT_PROJECT_ID = "default"
-MEMORY_VERSION = "1.2"  # explicit period support
+MEMORY_VERSION = "1.3"  # confidence + decay
 
-RESOLUTION_ABSENCE_THRESHOLD = 2  # consecutive periods
+RESOLUTION_ABSENCE_THRESHOLD = 2  # after confidence reaches Low
 
 
 # -----------------------------
@@ -19,20 +19,12 @@ RESOLUTION_ABSENCE_THRESHOLD = 2  # consecutive periods
 # -----------------------------
 
 def current_period():
-    """
-    Default logical period (ISO week).
-    Example: 2026-W05
-    """
+    """Default logical period (ISO week)."""
     year, week, _ = datetime.utcnow().isocalendar()
     return f"{year}-W{week:02d}"
 
 
 def normalize_period(period_id):
-    """
-    Option A:
-    - Trust explicit period override
-    - Guard against empty / invalid values
-    """
     if period_id and isinstance(period_id, str) and period_id.strip():
         return period_id.strip()
     return current_period()
@@ -48,7 +40,7 @@ def ensure_memory_dir():
 
 
 # -----------------------------
-# Load / Initialize Memory
+# Load / Save
 # -----------------------------
 
 def load_memory(project_id=DEFAULT_PROJECT_ID):
@@ -64,7 +56,19 @@ def load_memory(project_id=DEFAULT_PROJECT_ID):
         }
 
     with open(path, "r") as f:
-        return json.load(f)
+        memory = json.load(f)
+
+    # Backward compatibility: inject confidence if missing
+    for risk in memory.get("risks", {}).values():
+        if "confidence" not in risk:
+            risk["confidence"] = {
+                "level": "High",
+                "absence_count": 0,
+                "last_confident_period": risk.get("last_seen_period")
+            }
+
+    memory["memory_version"] = MEMORY_VERSION
+    return memory
 
 
 def save_memory(memory, project_id=DEFAULT_PROJECT_ID):
@@ -78,13 +82,6 @@ def save_memory(memory, project_id=DEFAULT_PROJECT_ID):
 # -----------------------------
 
 def update_memory(analyzed_result, project_id=DEFAULT_PROJECT_ID, period_id=None):
-    """
-    Updates longitudinal memory.
-
-    Option A:
-    - period_id provided  -> trusted logical time (testing / replay)
-    - period_id None      -> current ISO week (normal usage)
-    """
     memory = load_memory(project_id)
     period = normalize_period(period_id)
 
@@ -129,17 +126,21 @@ def _create_new_risk_record(risk, period):
 
         "current_status": "Stable",
 
+        "confidence": {
+            "level": "High",
+            "absence_count": 0,
+            "last_confident_period": period
+        },
+
         "resolution": {
             "is_resolved": False,
             "resolved_period": None,
-            "resolution_reason": None,
-            "absence_count": 0
+            "resolution_reason": None
         }
     }
 
 
 def _update_existing_risk(record, risk, period):
-    # Ignore duplicate updates within same period
     if period in record["periods_seen"]:
         return
 
@@ -152,7 +153,10 @@ def _update_existing_risk(record, risk, period):
     record["heat_history"].append(curr_heat)
     record["attention_history"].append(risk["attention_level"])
 
-    record["resolution"]["absence_count"] = 0
+    # Reset confidence on observation
+    record["confidence"]["level"] = "High"
+    record["confidence"]["absence_count"] = 0
+    record["confidence"]["last_confident_period"] = period
 
     if _heat_rank(curr_heat) > _heat_rank(prev_heat):
         record["escalation_count"] += 1
@@ -171,17 +175,55 @@ def _update_existing_risk(record, risk, period):
         record["current_status"] = "Recurring"
 
 
+# -----------------------------
+# Absence / Decay Logic (v1.3)
+# -----------------------------
+
 def _handle_missing_risks(risks, seen_ids, period):
     for risk_id, record in risks.items():
-        if risk_id not in seen_ids and not record["resolution"]["is_resolved"]:
-            if record["last_seen_period"] != period:
-                record["resolution"]["absence_count"] += 1
+        if risk_id in seen_ids or record["resolution"]["is_resolved"]:
+            continue
 
-            if record["resolution"]["absence_count"] >= RESOLUTION_ABSENCE_THRESHOLD:
-                record["resolution"]["is_resolved"] = True
-                record["resolution"]["resolved_period"] = period
-                record["resolution"]["resolution_reason"] = "Not observed in recent periods"
-                record["current_status"] = "Resolved"
+        record["confidence"]["absence_count"] += 1
+        absence = record["confidence"]["absence_count"]
+        severity = record["heat_history"][-1]
+
+        _apply_confidence_decay(record, severity, absence)
+
+        # Resolution now confidence-based
+        if (
+            record["confidence"]["level"] == "Low"
+            and absence >= RESOLUTION_ABSENCE_THRESHOLD
+        ):
+            record["resolution"]["is_resolved"] = True
+            record["resolution"]["resolved_period"] = period
+            record["resolution"]["resolution_reason"] = (
+                "Confidence decayed after sustained absence"
+            )
+            record["current_status"] = "Resolved"
+
+
+def _apply_confidence_decay(record, severity, absence):
+    level = record["confidence"]["level"]
+
+    # Severity-weighted decay thresholds
+    if severity == "High":
+        if absence >= 5:
+            record["confidence"]["level"] = "Low"
+        elif absence >= 3:
+            record["confidence"]["level"] = "Medium"
+
+    elif severity == "Medium":
+        if absence >= 4:
+            record["confidence"]["level"] = "Low"
+        elif absence >= 2:
+            record["confidence"]["level"] = "Medium"
+
+    else:  # Low severity
+        if absence >= 3:
+            record["confidence"]["level"] = "Low"
+        elif absence >= 1:
+            record["confidence"]["level"] = "Medium"
 
 
 # -----------------------------
