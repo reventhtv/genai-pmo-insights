@@ -47,6 +47,7 @@ def load_memory(project_id=DEFAULT_PROJECT_ID):
     ensure_memory_dir()
     path = memory_file_path(project_id)
 
+    # Fresh memory
     if not os.path.exists(path):
         return {
             "memory_version": MEMORY_VERSION,
@@ -58,13 +59,35 @@ def load_memory(project_id=DEFAULT_PROJECT_ID):
     with open(path, "r") as f:
         memory = json.load(f)
 
-    # Backward compatibility: inject confidence if missing
+    # -----------------------------
+    # Backward Compatibility Layer
+    # -----------------------------
+
     for risk in memory.get("risks", {}).values():
+
+        # periods_seen introduced later
+        if "periods_seen" not in risk:
+            last_seen = risk.get("last_seen_period")
+            risk["periods_seen"] = [last_seen] if last_seen else []
+
+        # periods_open introduced later
+        if "periods_open" not in risk:
+            risk["periods_open"] = len(risk["periods_seen"])
+
+        # confidence introduced in v1.3
         if "confidence" not in risk:
             risk["confidence"] = {
                 "level": "High",
                 "absence_count": 0,
                 "last_confident_period": risk.get("last_seen_period")
+            }
+
+        # resolution structure normalization
+        if "resolution" not in risk:
+            risk["resolution"] = {
+                "is_resolved": False,
+                "resolved_period": None,
+                "resolution_reason": None
             }
 
     memory["memory_version"] = MEMORY_VERSION
@@ -114,8 +137,8 @@ def _create_new_risk_record(risk, period):
 
         "first_seen_period": period,
         "last_seen_period": period,
-        "periods_open": 1,
         "periods_seen": [period],
+        "periods_open": 1,
 
         "heat_history": [risk["risk_heat"]],
         "attention_history": [risk["attention_level"]],
@@ -141,6 +164,7 @@ def _create_new_risk_record(risk, period):
 
 
 def _update_existing_risk(record, risk, period):
+    # Ignore duplicate updates in same period
     if period in record["periods_seen"]:
         return
 
@@ -167,6 +191,7 @@ def _update_existing_risk(record, risk, period):
     else:
         record["current_status"] = "Stable"
 
+    # Recurrence handling
     if record["resolution"]["is_resolved"]:
         record["recurrence_count"] += 1
         record["resolution"]["is_resolved"] = False
@@ -181,7 +206,11 @@ def _update_existing_risk(record, risk, period):
 
 def _handle_missing_risks(risks, seen_ids, period):
     for risk_id, record in risks.items():
-        if risk_id in seen_ids or record["resolution"]["is_resolved"]:
+
+        if risk_id in seen_ids:
+            continue
+
+        if record["resolution"]["is_resolved"]:
             continue
 
         record["confidence"]["absence_count"] += 1
@@ -204,9 +233,7 @@ def _handle_missing_risks(risks, seen_ids, period):
 
 
 def _apply_confidence_decay(record, severity, absence):
-    level = record["confidence"]["level"]
 
-    # Severity-weighted decay thresholds
     if severity == "High":
         if absence >= 5:
             record["confidence"]["level"] = "Low"
