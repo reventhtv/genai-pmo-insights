@@ -1,0 +1,1 @@
+Development activities are ongoing. External vendor API approval is still pending, and this dependency continues to be a potential schedule risk. No other major issues at this stage.

@@ -7,12 +7,6 @@ from services.comparison_service import compare_updates
 
 
 # -----------------------------
-# DEBUG
-# -----------------------------
-st.warning("DEBUG: Multi-Update page loaded")
-
-
-# -----------------------------
 # Helpers (UI-only, deterministic)
 # -----------------------------
 
@@ -69,6 +63,43 @@ def build_confidence_narrative(risk, current_period):
         )
 
     return None
+
+
+def build_confidence_trend(risk, recent_periods):
+    """
+    Reconstruct confidence trend for the last N periods (max 5),
+    using deterministic replay rules aligned with memory v1.3.
+    """
+    periods_seen = set(risk.get("periods_seen", []))
+    severity = risk.get("heat_history", ["Low"])[-1]
+
+    trend = []
+    absence = 0
+
+    for period in recent_periods:
+        if period in periods_seen:
+            absence = 0
+            level = "High"
+        else:
+            absence += 1
+            # Severity-weighted decay (same philosophy as memory)
+            if severity == "High":
+                level = "Medium" if absence < 3 else "Low"
+            elif severity == "Medium":
+                level = "Medium" if absence < 2 else "Low"
+            else:
+                level = "Low"
+
+        trend.append(level)
+
+    return trend
+
+
+def render_confidence_strip(trend):
+    """
+    Render confidence trend as a Streamlit-safe text strip.
+    """
+    return " → ".join(f"[{level}]" for level in trend)
 
 
 # -----------------------------
@@ -237,13 +268,14 @@ if st.session_state.comparison:
         st.dataframe(table, width="stretch")
 
     # -----------------------------
-    # Risk Confidence Assessment
+    # Risk Confidence Assessment + v1.4 Trends
     # -----------------------------
     st.divider()
     st.subheader("📌 Risk Confidence Assessment")
 
     memory = load_current_memory()
     risks = memory.get("risks", {})
+    all_periods = st.session_state.demo_weeks[-5:]
     current_period = memory.get("last_updated_period")
 
     shown_any = False
@@ -256,6 +288,13 @@ if st.session_state.comparison:
             risk_name = risk["risk_id"].replace("_", " ").title()
             st.markdown(f"**{risk_name}**")
             st.write(narrative)
+
+            trend = build_confidence_trend(risk, all_periods)
+            st.caption(
+                "Confidence Trend (last "
+                f"{len(all_periods)} periods):"
+            )
+            st.code(render_confidence_strip(trend), language="text")
 
     if not shown_any:
         st.write(
